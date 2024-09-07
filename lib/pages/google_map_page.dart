@@ -13,55 +13,79 @@ class GoogleMapPage extends StatefulWidget {
 
 class _GoogleMapPageState extends State<GoogleMapPage> {
   final locationController = Location();
-
   static const house = LatLng(14.953818, 120.895367);
   static const school = LatLng(14.959450, 120.889935);
 
   LatLng? currentPosition;
   Map<PolylineId, Polyline> polylines = {};
+  bool polylineVisible = false; // To control polyline visibility
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance
-        .addPostFrameCallback((_) async => await initializeMap());
-  }
-
-  Future<void> initializeMap() async {
-    await fetchLocationUpdates();
-    final coordinates = await fetchPolylinePoints();
-    generatePolyLineFromPoints(coordinates);
+        .addPostFrameCallback((_) async => await fetchLocationUpdates());
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: currentPosition == null
-            ? const Center(child: CircularProgressIndicator())
-            : GoogleMap(
-                initialCameraPosition: const CameraPosition(
-                  target: house,
-                  zoom: 13,
-                ),
-                markers: {
-                  Marker(
-                    markerId: const MarkerId('currentLocation'),
-                    icon: BitmapDescriptor.defaultMarker,
-                    position: currentPosition!,
+        appBar: AppBar(
+          title: const Text('Google Map with Polyline'),
+        ),
+        body: Stack(
+          children: [
+            currentPosition == null
+                ? const Center(child: CircularProgressIndicator())
+                : GoogleMap(
+                    initialCameraPosition: const CameraPosition(
+                      target: house,
+                      zoom: 13,
+                    ),
+                    markers: {
+                      Marker(
+                        markerId: const MarkerId('currentLocation'),
+                        icon: BitmapDescriptor.defaultMarker,
+                        position: currentPosition!,
+                      ),
+                      const Marker(
+                        markerId: MarkerId('sourceLocation'),
+                        icon: BitmapDescriptor.defaultMarker,
+                        position: house,
+                      ),
+                      const Marker(
+                        markerId: MarkerId('destinationLocation'),
+                        icon: BitmapDescriptor.defaultMarker,
+                        position: school,
+                      ),
+                    },
+                    polylines: polylineVisible
+                        ? Set<Polyline>.of(polylines.values)
+                        : {}, // Show polyline if polylineVisible is true
                   ),
-                  const Marker(
-                    markerId: MarkerId('sourceLocation'),
-                    icon: BitmapDescriptor.defaultMarker,
-                    position: house,
-                  ),
-                  const Marker(
-                    markerId: MarkerId('destinationLocation'),
-                    icon: BitmapDescriptor.defaultMarker,
-                    position: school,
-                  ),
-                },
-                polylines: Set<Polyline>.of(polylines.values),
+            Positioned(
+              bottom: 50,
+              right: 15,
+              child: FloatingActionButton(
+                onPressed: _onShowPolylineButtonPressed, // Trigger polyline
+                child: const Icon(Icons.directions),
               ),
+            ),
+          ],
+        ),
       );
+
+  Future<void> _onShowPolylineButtonPressed() async {
+    if (!polylineVisible) {
+      // Fetch polyline coordinates and show them
+      final coordinates = await fetchPolylinePoints();
+      if (coordinates.isNotEmpty) {
+        await generatePolyLineFromPoints(coordinates);
+        setState(() {
+          polylineVisible = true; // Show polyline after fetching coordinates
+        });
+      }
+    }
+  }
 
   Future<void> fetchLocationUpdates() async {
     bool serviceEnabled;
